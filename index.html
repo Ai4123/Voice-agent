@@ -359,64 +359,27 @@
 
     // N8N API Call
     async function sendToN8n(text) {
-        const response = await fetch(CONFIG.N8N_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ question: text })
-        });
+    const response = await fetch(CONFIG.N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ question: text })
+    });
 
-        if (!response.ok) {
-            throw new Error(`N8N webhook failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        // Fallback if response structure differs, check common fields
-        return data.response || data.text || data.output || JSON.stringify(data);
+    if (!response.ok) {
+        throw new Error(`N8N webhook failed: ${response.statusText}`);
     }
 
-    // ElevenLabs API Call
-    async function playTextToSpeech(text) {
-        const url = `https://api.elevenlabs.io/v1/text-to-speech/${CONFIG.ELEVENLABS_VOICE_ID}`;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'xi-api-key': CONFIG.ELEVENLABS_API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                text: text,
-                model_id: CONFIG.ELEVENLABS_MODEL_ID
-            })
-        });
+    // Receive audio file from n8n
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
 
-        if (!response.ok) {
-            throw new Error(`ElevenLabs TTS failed: ${response.statusText}`);
-        }
+    await audio.play();
+}
 
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-
-        return new Promise((resolve) => {
-            audio.onended = () => {
-                resolve();
-            };
-            audio.onerror = () => {
-                // If playback fails, we just resolve to continue flow
-                console.error('Audio playback error');
-                resolve();
-            };
-            audio.play().catch(e => {
-                console.error("Auto-play prevented", e);
-                addMessage('error', 'Auto-play blocked by browser. Click to retry.');
-                resolve();
-            });
-        });
-    }
-
+    
     // UI Helpers
     function updateUIState(state) {
         // Reset classes
