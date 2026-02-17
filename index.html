@@ -331,32 +331,27 @@
 
     // Core Logic Flow
     async function handleUserTranscript(text) {
-        if (!text.trim()) return;
+    if (!text.trim()) return;
 
-        updateUIState('processing');
-        addMessage('user', text);
+    updateUIState('processing');
+    addMessage('user', text);
 
-        try {
-            // 1. Send to n8n
-            updateStatus('Thinking...');
-            const aiResponseText = await sendToN8n(text);
-            
-            addMessage('ai', aiResponseText);
+    try {
+        updateStatus('Thinking...');
 
-            // 2. Convert to Speech
-            updateStatus('Speaking...');
-            updateUIState('speaking'); // Keep button processing/active style
-            await playTextToSpeech(aiResponseText);
+        // Just send and let n8n return audio
+        await sendToN8n(text);
 
-        } catch (error) {
-            console.error(error);
-            addMessage('error', `Error: ${error.message}`);
-        } finally {
-            isProcessing = false;
-            updateUIState('idle');
-        }
+    } catch (error) {
+        console.error(error);
+        addMessage('error', `Error: ${error.message}`);
+    } finally {
+        isProcessing = false;
+        updateUIState('idle');
     }
+}
 
+        
     // N8N API Call
     async function sendToN8n(text) {
     const response = await fetch(CONFIG.N8N_WEBHOOK_URL, {
