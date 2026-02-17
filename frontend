@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice RAG Assistant</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #7c4dff;
+            --accent-hover: #651fff;
+            --user-msg-bg: #2c2c2c;
+            --ai-msg-bg: #3f51b5;
+            --error-color: #cf6679;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            height: 90vh;
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .status-bar {
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+
+        .chat-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background-color: var(--user-msg-bg);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background-color: var(--ai-msg-bg);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.error {
+            align-self: center;
+            background-color: rgba(207, 102, 121, 0.1);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+            font-size: 0.85rem;
+        }
+
+        .controls {
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(to top, var(--card-bg) 80%, transparent);
+        }
+
+        .mic-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--accent-color);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(124, 77, 255, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            position: relative;
+            z-index: 10;
+        }
+
+        .mic-button:hover {
+            background-color: var(--accent-hover);
+            transform: scale(1.05);
+        }
+
+        .mic-button:active {
+            transform: scale(0.95);
+        }
+
+        .mic-button svg {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+        }
+
+        .mic-button.listening {
+            background-color: #f44336;
+            box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+            animation: pulse-red 2s infinite;
+        }
+
+        .mic-button.processing {
+            background-color: #ff9800;
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+            cursor: not-allowed;
+            animation: rotate 2s linear infinite;
+        }
+
+        /* Ring animation for listening state */
+        .ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background-color: rgba(124, 77, 255, 0.2);
+            z-index: 1;
+        }
+
+        .mic-button.listening ~ .ring {
+            animation: ripple 1.5s infinite;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes ripple {
+            0% { width: 80px; height: 80px; opacity: 1; }
+            100% { width: 200px; height: 200px; opacity: 0; }
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(244, 67, 54, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); }
+        }
+
+        @keyframes rotate {
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Voice Assistant</h1>
+        <div class="status-bar" id="statusBar">Ready</div>
+    </header>
+
+    <div class="chat-area" id="chatArea">
+        <div class="message ai">Hello! Tap the microphone to start talking.</div>
+    </div>
+
+    <div class="controls">
+        <button class="mic-button" id="micButton" aria-label="Start Microphone">
+            <!-- Mic Icon -->
+            <svg viewBox="0 0 24 24" id="micIcon">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+            <!-- Loading/Processing Icon (Hidden by default) -->
+            <svg viewBox="0 0 24 24" id="loadingIcon" style="display: none;">
+                <path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/>
+            </svg>
+        </button>
+        <div class="ring"></div>
+    </div>
+</div>
+
+<script>
+    /* 
+     * SECURITY WARNING: 
+     * API keys should normally be stored in a backend service, not exposed in frontend code.
+     * This implementation is for demonstration purposes only.
+     */
+
+    const CONFIG = {
+        N8N_WEBHOOK_URL: "https://n8n.srv962022.hstgr.cloud/webhook/7183a420-7b21-4eb3-97ea-113f1646e95d",
+        ELEVENLABS_API_KEY: "sk_8ac63ad92215edcf055b8e23911451339cc643815eef25bb",
+        ELEVENLABS_VOICE_ID: "EaBs7G1VibMrNAuz2Na7",
+        ELEVENLABS_MODEL_ID: "eleven_multilingual_v2"
+    };
+
+    const UI = {
+        micBtn: document.getElementById('micButton'),
+        micIcon: document.getElementById('micIcon'),
+        loadingIcon: document.getElementById('loadingIcon'),
+        chatArea: document.getElementById('chatArea'),
+        statusBar: document.getElementById('statusBar')
+    };
+
+    // State Management
+    let isListening = false;
+    let isProcessing = false;
+    let recognition;
+
+    // Initialize Speech Recognition
+    function initSpeechRecognition() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            addMessage('error', 'Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+            return null;
+        }
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const rec = new SpeechRecognition();
+        
+        rec.continuous = false;
+        rec.interimResults = false;
+        rec.lang = 'en-US';
+
+        rec.onstart = () => {
+            isListening = true;
+            updateUIState('listening');
+        };
+
+        rec.onend = () => {
+            isListening = false;
+            // distinct from stopping to process
+            if (!isProcessing) {
+                updateUIState('idle');
+            }
+        };
+
+        rec.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
+            isListening = false;
+            isProcessing = false;
+            updateUIState('idle');
+            addMessage('error', `Microphone error: ${event.error}`);
+        };
+
+        rec.onresult = async (event) => {
+            const transcript = event.results[0][0].transcript;
+            handleUserTranscript(transcript);
+        };
+
+        return rec;
+    }
+
+    recognition = initSpeechRecognition();
+
+    // Event Listeners
+    UI.micBtn.addEventListener('click', toggleListening);
+
+    function toggleListening() {
+        if (!recognition) return;
+
+        if (isListening) {
+            recognition.stop();
+        } else if (!isProcessing) {
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error(e);
+                addMessage('error', 'Could not start microphone.');
+            }
+        }
+    }
+
+    // Core Logic Flow
+    async function handleUserTranscript(text) {
+        if (!text.trim()) return;
+
+        updateUIState('processing');
+        addMessage('user', text);
+
+        try {
+            // 1. Send to n8n
+            updateStatus('Thinking...');
+            const aiResponseText = await sendToN8n(text);
+            
+            addMessage('ai', aiResponseText);
+
+            // 2. Convert to Speech
+            updateStatus('Speaking...');
+            updateUIState('speaking'); // Keep button processing/active style
+            await playTextToSpeech(aiResponseText);
+
+        } catch (error) {
+            console.error(error);
+            addMessage('error', `Error: ${error.message}`);
+        } finally {
+            isProcessing = false;
+            updateUIState('idle');
+        }
+    }
+
+    // N8N API Call
+    async function sendToN8n(text) {
+        const response = await fetch(CONFIG.N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ question: text })
+        });
+
+        if (!response.ok) {
+            throw new Error(`N8N webhook failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        // Fallback if response structure differs, check common fields
+        return data.response || data.text || data.output || JSON.stringify(data);
+    }
+
+    // ElevenLabs API Call
+    async function playTextToSpeech(text) {
+        const url = `https://api.elevenlabs.io/v1/text-to-speech/${CONFIG.ELEVENLABS_VOICE_ID}`;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'xi-api-key': CONFIG.ELEVENLABS_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                model_id: CONFIG.ELEVENLABS_MODEL_ID
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`ElevenLabs TTS failed: ${response.statusText}`);
+        }
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        return new Promise((resolve) => {
+            audio.onended = () => {
+                resolve();
+            };
+            audio.onerror = () => {
+                // If playback fails, we just resolve to continue flow
+                console.error('Audio playback error');
+                resolve();
+            };
+            audio.play().catch(e => {
+                console.error("Auto-play prevented", e);
+                addMessage('error', 'Auto-play blocked by browser. Click to retry.');
+                resolve();
+            });
+        });
+    }
+
+    // UI Helpers
+    function updateUIState(state) {
+        // Reset classes
+        UI.micBtn.classList.remove('listening', 'processing');
+        
+        // Icon Visibility
+        UI.micIcon.style.display = 'block';
+        UI.loadingIcon.style.display = 'none';
+
+        switch (state) {
+            case 'listening':
+                UI.micBtn.classList.add('listening');
+                updateStatus('Listening...');
+                break;
+            case 'processing':
+                UI.micBtn.classList.add('processing');
+                UI.micIcon.style.display = 'none';
+                UI.loadingIcon.style.display = 'block';
+                updateStatus('Processing...');
+                break;
+            case 'speaking':
+                // Optional: visual indicator for speaking, maybe reuse processing style or simple active
+                break;
+            case 'idle':
+                updateStatus('Ready');
+                break;
+        }
+    }
+
+    function updateStatus(text) {
+        UI.statusBar.textContent = text;
+    }
+
+    function addMessage(type, text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add('message', type);
+        msgDiv.textContent = text;
+        UI.chatArea.appendChild(msgDiv);
+        UI.chatArea.scrollTop = UI.chatArea.scrollHeight;
+    }
+</script>
+
+</body>
+</html>
